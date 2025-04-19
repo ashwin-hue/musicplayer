@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Music Player</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    body {
+      background-color: #5f4ab2;
+      color: #000;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      display: flex;
+      width: 95%;
+      height: 95vh;
+      border-radius: 20px;
+      overflow: hidden;
+      background-color: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(6px);
+    }
+
+    .sidebar {
+      width: 30%;
+      background-color: #452e95;
+      padding: 20px;
+      color: #d6d6ff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar h3 {
+      margin-bottom: 20px;
+      font-size: 20px;
+      color: #fff;
+    }
+
+    #songListContainer {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding-right: 5px;
+    }
+
+    .song-item {
+      background-color: #352077;
+      margin-bottom: 15px;
+      padding: 12px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      transition: background 0.3s;
+      cursor: pointer;
+    }
+
+    .song-item:hover {
+      background-color: #3e298c;
+    }
+
+    .main-player {
+      width: 70%;
+      background-color: #5c3bb1;
+      border-top-left-radius: 40px;
+      padding: 25px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .player-container {
+      display: flex;
+      flex-direction: column;
+      background-color: #2e1e4a;
+      padding: 25px;
+      border-radius: 20px;
+      height: 100%;
+    }
+
+    .player-display {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 20px;
+      background: #452e95;
+      padding: 15px;
+      border-radius: 12px;
+    }
+
+    .player-display h2 {
+      font-size: 20px;
+    }
+
+    .middle-display {
+      margin: 15px 0;
+      padding: 180px;
+      background-color: #3d2c6e;
+      color: #fff;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 16px;
+    }
+
+    .controls {
+      background-color: #3b2763;
+      border-radius: 20px;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+
+    .controls button {
+      background: none;
+      border: none;
+      font-size: 70px;
+      color: #fff;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .controls button:hover {
+      transform: scale(1.2);
+    }
+
+    audio {
+      width: 100%;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Song List Section -->
+    <div class="sidebar">
+      <h3>List of Songs</h3>
+      <div id="songListContainer">
+        <div id="songList"></div>
+      </div>
+    </div>
+
+    <!-- Player Section -->
+    <div class="main-player">
+      <div class="player-container">
+        <div class="player-display">
+          <h2 id="currentSongTitle">Select a song</h2>
+        </div>
+
+        <!-- 🔹 New Middle Container -->
+        <div class="middle-display">
+          <p>🎶 Album art, lyrics, or mood info can be displayed here.</p>
+        </div>
+
+        <audio id="audioPlayer" controls></audio>
+
+        <div class="controls">
+          <button onclick="likeSong()">❤️</button>
+          <button onclick="prevSong()">⏮️</button>
+          <button onclick="playPause()">▶️</button>
+          <button onclick="nextSong()">⏭️</button>
+          <button onclick="downloadSong()">⬇️</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getStorage, ref, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyB3Ey6vyE48uHLQ65i597HvlMDFlMiW_oU",
+      authDomain: "musicplayer-f9827.firebaseapp.com",
+      projectId: "musicplayer-f9827",
+      storageBucket: "musicplayer-f9827.appspot.com",
+      messagingSenderId: "968581669048",
+      appId: "1:968581669048:web:a4b61ef61ff5a01672944d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const storage = getStorage(app);
+
+    const songListDiv = document.getElementById("songList");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const currentSongTitle = document.getElementById("currentSongTitle");
+
+    let songs = [];
+    let currentIndex = 0;
+
+    const listRef = ref(storage);
+
+    listAll(listRef)
+      .then((res) => {
+        res.items.forEach((itemRef) => {
+          getDownloadURL(itemRef).then((url) => {
+            songs.push({ name: itemRef.name, url: url });
+            addSongToList(itemRef.name, url);
+          });
+        });
+      })
+      .catch((error) => {
+        console.error("Error listing songs:", error);
+      });
+
+    function addSongToList(name, url) {
+      const div = document.createElement("div");
+      div.className = "song-item";
+      div.innerHTML = `<span>🎵 ${name}</span>`;
+      div.onclick = () => {
+        playSong(name, url);
+        currentIndex = songs.findIndex(song => song.name === name);
+      };
+      songListDiv.appendChild(div);
+    }
+
+    window.likeSong = function () {
+      alert("You liked this song ❤️");
+    };
+
+    window.playPause = function () {
+      if (audioPlayer.paused) {
+        audioPlayer.play();
+      } else {
+        audioPlayer.pause();
+      }
+    };
+
+    window.prevSong = function () {
+      if (songs.length === 0) return;
+      currentIndex = (currentIndex - 1 + songs.length) % songs.length;
+      playSong(songs[currentIndex].name, songs[currentIndex].url);
+    };
+
+    window.nextSong = function () {
+      if (songs.length === 0) return;
+      currentIndex = (currentIndex + 1) % songs.length;
+      playSong(songs[currentIndex].name, songs[currentIndex].url);
+    };
+
+    window.downloadSong = function () {
+      const a = document.createElement("a");
+      a.href = audioPlayer.src;
+      a.download = currentSongTitle.textContent;
+      a.click();
+    };
+
+    function playSong(name, url) {
+      audioPlayer.src = url;
+      audioPlayer.play();
+      currentSongTitle.textContent = name;
+    }
+  </script>
+</body>
+</html>
